@@ -1,4 +1,4 @@
-name := "thin-string"
+name := "magicString"
 
 version := "0.1"
 
