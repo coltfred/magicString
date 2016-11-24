@@ -55,6 +55,7 @@ object Main {
   def main(args: Array[String]): Unit = {
     case class Baz(notI: Int)
     case class Bar(first: String, second: Int, baz: Baz)
+    case class BarBar(i: Int, s: String, l: List[Int])
     case class Foo(s: String, i: Int, singleBar: Bar, bars: List[Bar], baz: Baz)
     val foo = Foo(
       "Hello",
@@ -65,8 +66,11 @@ object Main {
 
     // println(foo.magicString)
 
-    val baz = Bar("hello", 2, Baz(1))
-    println(ToStringRecAgain.toStringRec(foo))
+    val bar = Bar("hello", 2, Baz(1))
+    val barbar = BarBar(1, "barbar", List(1, 2, 3))
+
+    println(ToStringRecAgain.toStringRec(bar))
+    println(ToStringRecAgain.toStringRec(barbar))
 
     ()
   }
