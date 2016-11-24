@@ -11,6 +11,7 @@ object ToString {
   import scala.reflect.ClassTag
 
   def apply[A](implicit ts: ToString[A]): ToString[A] = ts
+
   def create[A](f: A => String): ToString[A] = new ToString[A] {
     def asString(a: A): String = f(a)
   }
@@ -24,12 +25,12 @@ object ToString {
   implicit val toStringLong = default[Long]
   implicit val toStringString = default[String]
   implicit val toStringDouble = default[Double]
-  implicit def toStringList[A](implicit tsa: ToString[A]): ToString[List[A]] = create[List[A]] {
-    case Nil => "[]"
-    case l =>
-      val innerString = l.map(tsa.asString).mkString(",")
-      s"[$innerString]"
-  }
+  // implicit def toStringList[A](implicit tsa: ToString[A]): ToString[List[A]] = create[List[A]] {
+  //   case Nil => "[]"
+  //   case l =>
+  //     val innerString = l.map(tsa.asString).mkString(",")
+  //     s"[$innerString]"
+  // }
 
   implicit def toStringForLabelledGeneric[A, L <: HList](implicit
     gen: LabelledGeneric.Aux[A, L],
