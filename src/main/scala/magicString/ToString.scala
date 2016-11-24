@@ -32,22 +32,22 @@ object ToString {
   //     s"[$innerString]"
   // }
 
-  implicit def toStringForLabelledGeneric[A, L <: HList](implicit
-    gen: LabelledGeneric.Aux[A, L],
-    tmr: ToStringRec[L],
-    ct: ClassTag[A]): ToString[A] = create[A] { a =>
-    printNestedResult(ToStringRec.toStringRec(a))
-  }
+  // implicit def toStringForLabelledGeneric[A, L <: HList](implicit
+  //   gen: LabelledGeneric.Aux[A, L],
+  //   tmr: ToStringRec[L],
+  //   ct: ClassTag[A]): ToString[A] = create[A] { a =>
+  //   printNestedResult(ToStringRec.toStringRec(a))
+  // }
 
-  private def printNestedResult(nestedResult: NestedResult): String = {
-    val nestedLayer = nestedResult.unfix
-    val lastPiece = nestedLayer.l match {
-      case Nil => nestedLayer.className
-      case l =>
-        val childrenString = l.map(printNestedResult(_)).mkString(", ")
+  // private def printNestedResult(nestedResult: NestedResult): String = {
+  //   val nestedLayer = nestedResult.unfix
+  //   val lastPiece = nestedLayer.l match {
+  //     case Nil => nestedLayer.className
+  //     case l =>
+  //       val childrenString = l.map(printNestedResult(_)).mkString(", ")
 
-        s"""${nestedLayer.className}($childrenString)"""
-    }
-    nestedLayer.variableNameMaybe.map(_.name + "=").getOrElse("") + lastPiece
-  }
+  //       s"""${nestedLayer.className}($childrenString)"""
+  //   }
+  //   nestedLayer.variableNameMaybe.map(_.name + "=").getOrElse("") + lastPiece
+  // }
 }

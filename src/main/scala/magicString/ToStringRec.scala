@@ -5,26 +5,28 @@ import shapeless.labelled.{ KeyTag, FieldType }
 import scala.reflect.ClassTag
 
 /**
- * Generate a List[NestedResult] for any L which is an HList using `toStringRecLow`, `hnilToStringRec` and `hconsToStringRec`
+ * Generate a List[MyResult] for any L which is an HList using `toStringRecLow`, `hnilToStringRec` and `hconsToStringRec`
  */
-trait ToStringRec[L <: HList] { def apply(l: L): List[NestedResult] }
+trait ToStringRec[L] { def apply(l: L): List[SResult] }
 
-trait LowPriorityToStringRec {
-  implicit def toStringRecLow[K <: Symbol, V: ToString, L <: HList](implicit
-    kWit: Witness.Aux[K],
-    tailToStringRec: ToStringRec[L]): ToStringRec[FieldType[K, V] :: L] = new ToStringRec[FieldType[K, V] :: L] {
-    def apply(l: FieldType[K, V] :: L): List[NestedResult] = {
+trait LowerPriorityToStringRec {
+}
 
-      val f = Fix[Result](Result(Some(kWit.value), ToString[V].asString(l.head.asInstanceOf[V]), Nil)) +: tailToStringRec(l.tail)
-      println(f)
-      f
+trait LowPriorityToStringRec extends LowerPriorityToStringRec {
+  implicit def hconsWhereVIsNotLabelledGeneric[K <: Symbol, V, T <: HList](implicit
+    wit: Witness.Aux[K],
+    tmrH: ToStringRec[V],
+    tmrT: ToStringRec[T],
+    ct: ClassTag[V]): ToStringRec[FieldType[K, V] :: T] = new ToStringRec[FieldType[K, V] :: T] {
+    def apply(l: FieldType[K, V] :: T): List[SResult] = {
+      SResult(Some(wit.value), LabelledResult(ct.runtimeClass.getName, tmrH(l.head))) +: tmrT(l.tail)
     }
   }
 }
 
 object ToStringRec extends LowPriorityToStringRec {
   implicit val hnilToStringRec: ToStringRec[HNil] = new ToStringRec[HNil] {
-    def apply(l: HNil): List[NestedResult] = Nil
+    def apply(l: HNil): List[SResult] = Nil
   }
 
   implicit def hconsToStringRec[K <: Symbol, V, R <: HList, T <: HList](implicit
@@ -33,21 +35,26 @@ object ToStringRec extends LowPriorityToStringRec {
     tmrH: ToStringRec[R],
     tmrT: ToStringRec[T],
     ct: ClassTag[V]): ToStringRec[FieldType[K, V] :: T] = new ToStringRec[FieldType[K, V] :: T] {
-    def apply(l: FieldType[K, V] :: T): List[NestedResult] = {
-
-      val f = Fix[Result](Result(Some(wit.value), ct.runtimeClass.getName, tmrH(gen.to(l.head)))) +: tmrT(l.tail)
-      println("In recursive" + f)
-      f
+    def apply(l: FieldType[K, V] :: T): List[SResult] = {
+      SResult(Some(wit.value), LabelledResult(ct.runtimeClass.getName, tmrH(gen.to(l.head)))) +: tmrT(l.tail)
     }
+  }
+
+  implicit def listRec[A](implicit tsra: ToStringRec[A]): ToStringRec[List[A]] = new ToStringRec[List[A]] {
+    def apply(l: List[A]): List[SResult] = {
+      l.flatMap(tsra(_))
+    }
+  }
+
+  implicit def toStringRecFromToString[A](implicit tsa: ToString[A]): ToStringRec[A] = new ToStringRec[A] {
+    def apply(a: A): List[SResult] = List(SResult(None, LeafResult(tsa.asString(a))))
   }
 
   def toStringRec[A, L <: HList](a: A)(implicit
     gen: LabelledGeneric.Aux[A, L],
     tmr: ToStringRec[L],
-    ct: ClassTag[A]): NestedResult = {
-    val f = Fix[Result](Result(None, ct.runtimeClass.getName, tmr(gen.to(a))))
-    println("at top" + f)
-    f
+    ct: ClassTag[A]): MyResult = {
+    LabelledResult(ct.runtimeClass.getName, tmr.apply(gen.to(a)))
   }
 }
 
@@ -56,21 +63,33 @@ object Main {
     case class Baz(notI: Int)
     case class Bar(first: String, second: Int, baz: Baz)
     case class BarBar(i: Int, s: String, l: List[Int])
-    case class Foo(s: String, i: Int, singleBar: Bar, bars: List[Bar], baz: Baz)
+    case class Foo(i: Int, singleBar: Bar, bars: List[Bar])
     val foo = Foo(
-      "Hello",
       1,
       Bar("im Single", 500, Baz(5000)),
-      List(Bar("firstThing", 100, Baz(1000)), Bar("second", 200, Baz(2000))), Baz(6000)
+      List(Bar("firstThing", 100, Baz(1000)), Bar("second", 200, Baz(2000)))
     )
-
-    // println(foo.magicString)
 
     val bar = Bar("hello", 2, Baz(1))
     val barbar = BarBar(1, "barbar", List(1, 2, 3))
+    val baz = Baz(1)
+    val listBaz = List(Baz(1))
 
-    println(ToStringRecAgain.toStringRec(bar))
-    println(ToStringRecAgain.toStringRec(barbar))
+    //Not sure where this goes. It creates a ToStringRec for an A which is a labelled generic. It's like
+    //the above `toStringRec`, but returning a ToStringRec instead of the MyResult.
+    implicit def toStringRecForLabelledGeneric[A, L <: HList](implicit
+      gen: LabelledGeneric.Aux[A, L],
+      tmr: ToStringRec[L],
+      ct: ClassTag[A]): ToStringRec[A] = new ToStringRec[A] {
+      def apply(a: A): List[SResult] = List(SResult(None, LabelledResult(ct.runtimeClass.getName, tmr.apply(gen.to(a)))))
+    }
+
+    println(ToStringRec.toStringRec(bar))
+    println(ToStringRec.toStringRec(barbar))
+    println(ToStringRec.toStringRec(baz))
+    println(ToStringRec.listRec(implicitly[ToStringRec[Baz]])(listBaz))
+    //This line doesn't compile, but should. Diverging implicits.
+    // println(ToStringRec.toStringRec(foo))
 
     ()
   }
